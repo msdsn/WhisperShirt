@@ -1,3 +1,5 @@
+h11
+gunicorn
 fastapi
 uvicorn[standard]
 groq
@@ -5,3 +7,5 @@ numpy
 openai
 pydub
 boto3
+python-decouple
+supabase
