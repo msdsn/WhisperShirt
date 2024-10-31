@@ -19,8 +19,4 @@
 # audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
 # print(audio_base64)
 
-import time
-time_in = time.time()
-time.sleep(3)
-time_out = time.time()
-print(time_out - time_in)
+

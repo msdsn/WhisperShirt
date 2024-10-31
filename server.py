@@ -105,7 +105,9 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             message = await websocket.receive_text()
+            print(f"Message received: {message}")
             data = json.loads(message)
+            print(f"Data received: {data}")
             if data.get("type") == 'text':
                 async def _run_conversation():
                     try:
