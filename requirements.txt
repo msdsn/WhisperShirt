@@ -1,7 +1,7 @@
 h11
 gunicorn
 fastapi
-uvicorn[standard]
+uvicorn
 groq
 numpy
 openai

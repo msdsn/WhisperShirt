@@ -2,6 +2,8 @@ from groq_whisper import VoiceRecognition
 from llm import LLM
 from typing import Iterator
 
+print("Bot is starting...")
+
 class Bot:
     def __init__(self, ws):
         self.ws = ws
