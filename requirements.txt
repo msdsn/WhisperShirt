@@ -3,3 +3,5 @@ uvicorn[standard]
 groq
 numpy
 openai
+pydub
+boto3

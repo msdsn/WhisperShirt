@@ -4,9 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <!-- pixi live2d dependencies -->
+    <!-- Load Cubism and PixiJS -->
+    <!-- <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script> -->
+    <script src="/live2dcubismcore.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/gh/dylanNew/live2d/webgl/Live2D/lib/live2d.min.js"></script> -->
+    <script src="/live2d.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/pixi.min.js"></script> -->
+    <script src="/pixi.min.js"></script>
+
+    <!-- <script src="https://cdn.jsdelivr.net/gh/RaSan147/pixi-live2d-display@v0.5.0-ls-7/dist/index.min.js"></script> -->
+    <script src="/index.min.js"></script>
     <title>Vite + React</title>
   </head>
   <body>
+    <canvas id="canvas"></canvas>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
