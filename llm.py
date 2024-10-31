@@ -12,9 +12,6 @@ from decouple import config
 import os
 from server import s3
 
-
-print("LLM is starting...")
-
 class LLM:
     def __init__(self, person_name: str = "emily", person_features: Iterator[str] = ['loves blue', 'likes to read']):
         api_key = config("OPENAI_KEY")

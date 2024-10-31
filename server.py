@@ -17,13 +17,7 @@ import io
 import boto3
 from pydub import AudioSegment
 
-print("Server is starting...")
 
-print(f"""
-AWS_ACCESS_KEY_ID: {config("AWS_ACCESS_KEY_ID")}
-AWS_SECRET_ACCESS_KEY: {config("AWS_SECRET_ACCESS_KEY")}
-AWS_REGION_NAME: {config("AWS_REGION_NAME")}
-""")
 
 s3 = boto3.client(
     's3',
@@ -34,7 +28,7 @@ s3 = boto3.client(
 
 from bot import Bot
 
-print("Server is starting...")
+
 
 app = FastAPI()
 
@@ -50,14 +44,11 @@ app.add_middleware(
 SUPABASE_URL = config("SUPABASE_URL")
 SUPABASE_KEY = config("SUPABASE_KEY")
 
-print(f"""
-SUPABASE_URL: {SUPABASE_URL}
-SUPABASE_KEY: {SUPABASE_KEY}
-""")
+
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-print("Supabase client created")
+
 
 @app.get("/audio")
 def read_item(audio_path: str):
@@ -195,7 +186,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.close()
 
 
-print("Server started")
+
 
 app.mount(
     "/live2d-models",
@@ -203,23 +194,21 @@ app.mount(
     name="live2d-models",
 )
 
-print("Live2D models mounted")
+
 
 app.mount("/assets", StaticFiles(directory="app/dist/assets"), name="assets")
 
-print("Assets mounted")
+
 @app.get("/{full_path:path}")
 async def serve_react_app(full_path: str):
     file_path = os.path.join('app', 'dist', full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
-        print('ll')
         return FileResponse(file_path)
     else:
-        print('ll2')
         return FileResponse(os.path.join('app', 'dist', 'index.html'))
     
 
-print("React app mounted")
+
 
 
 
