@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket, HTTPException, Request
 from typing import Union
 from decouple import config
 from supabase import create_client, Client
@@ -116,7 +116,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                         try:
                             await websocket.send_text(
-                                json.dumps({"type": "audio-response", "text": file_path})
+                                json.dumps({"type": "audio-response", "text": text, "file_path": file_path})
                             )  
                         except Exception as e:
                             print(f"Error sending text response: {e}")
@@ -200,7 +200,17 @@ app.mount("/assets", StaticFiles(directory="app/dist/assets"), name="assets")
 
 
 @app.get("/{full_path:path}")
-async def serve_react_app(full_path: str):
+async def serve_react_app(request: Request, full_path: str):
+    host = request.headers.get('host')
+    if host:
+        subdomain = host.split('.')[0]  # Alt alan adını alır
+    print("---"*20)
+    print("---"*20)
+    print("---"*20)
+    print(f"Subdomain: {subdomain}")
+    print("---"*20)
+    print("---"*20)
+    print("---"*20)
     file_path = os.path.join('app', 'dist', full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
