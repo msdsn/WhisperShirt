@@ -4,28 +4,30 @@ import {
 } from "react-router-dom";
 import { SubdomainProvider } from "./context/SubdomainContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
-import Layout from "./components/Layout";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import { SessionProvider } from "./context/SessionContext";
 
 function App() {
 
   const router = createBrowserRouter([
     {
-      element: <Layout />,
-      children: [
-        {
-          path: "/", element: <div>Home</div>
-        },
-      ],
+      path: "/", element: <Home />,
     },
+    {
+      path: "/login", element: <Login />,
+    }
   ]);
 
   return (
     <>
-      <SubdomainProvider>
-        <WebSocketProvider>
-          <RouterProvider router={router} />
-        </WebSocketProvider>
-      </SubdomainProvider>
+      <SessionProvider>
+        <SubdomainProvider>
+          <WebSocketProvider>
+            <RouterProvider router={ router } />
+          </WebSocketProvider>
+        </SubdomainProvider>
+      </SessionProvider>
     </>
   )
 }

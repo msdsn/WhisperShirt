@@ -22,13 +22,27 @@ type WebSocketProviderProps = {
 }
 
 export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
-    const { subdomain } = useContext(SubdomainContext) as SubdomainContextType
+    const { subdomain, isLocal } = useContext(SubdomainContext) as SubdomainContextType
     const [isReady, setIsReady] = useState<boolean>(false)
     const [val, setVal] = useState<string | null>(null)
     const [ws, setWs] = useState<WebSocket | null>(null)
     const send = ws ? ws.send.bind(ws) : () => { };
     const connectToServer = () => {
-        const socket = new WebSocket(`wss://whispershirt.com/ws${subdomain ? ("/" + subdomain) : ''}`)
+        let url = ''
+        if (isLocal) {
+            if (subdomain) {
+                url = `ws://localhost:8000/ws/${subdomain}`
+            } else {
+                url = `ws://localhost:8000/ws`
+            }
+        } else {
+            if (subdomain) {
+                url = `wss://whispershirt.com/ws/${subdomain}`
+            } else {
+                url = `wss://whispershirt.com/ws`
+            }
+        }
+        const socket = new WebSocket(url)
         socket.onopen = () => setIsReady(true)
         socket.onclose = () => setIsReady(false)
         socket.onmessage = (event) => setVal(event.data)
@@ -54,7 +68,7 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
             }
         }
     }, [])
-    
+
 
     return (
         <WebSocketContext.Provider value={ { isReady, val, send, ws, connectToServer } }>

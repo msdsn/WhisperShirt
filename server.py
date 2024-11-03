@@ -16,6 +16,7 @@ import base64
 import io
 import boto3
 from pydub import AudioSegment
+from pydantic import BaseModel
 
 
 
@@ -48,6 +49,49 @@ SUPABASE_KEY = config("SUPABASE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+class UserInfo(BaseModel):
+    code: str
+    subdomain: str
+
+@app.post("/signup")
+def read_item(userInfo: UserInfo):
+    try:
+        response = supabase.table('userkeys').select('*').eq('subdomain', userInfo.subdomain).neq('key', userInfo.code).execute()
+        print(f"domain Response: {response}")
+        if response.data:
+            return {"type": "error", "message": "Subdomain has already been taken."}
+    except Exception as e:
+        print('Sorgu sırasında bir hata oluştu:', e)
+        return {"type": "error", "message": str(e)}
+    try:
+        response = supabase.table('userkeys').select('*').eq('key', userInfo.code).execute()
+        response_auth = supabase.table('users').select('*').eq('email', userInfo.subdomain+"@whispershirt.com").execute()
+    except Exception as e:
+        print('Sorgu sırasında bir hata oluştu:', e)
+        return {"type": "error", "message": str(e)}
+    data = response.data
+    data_auth = response_auth.data
+    if data_auth:
+        return {"type": "exist", "message": "User already exists.", "email": userInfo.subdomain+"@whispershirt.com", "password": userInfo.code}
+    if data:
+        data = data[0]
+        print('Kayıt bulundu:', data)
+        username = userInfo.subdomain
+        try:
+            response = supabase.auth.admin.create_user({
+                "email":username+"@whispershirt.com",
+                "password":userInfo.code,
+                "email_confirm": True,
+            })
+            response = supabase.table('userkeys').update({"subdomain": username}).eq('key', userInfo.code).execute()
+            return {"type": "success", "message": "User created successfully", "email": username+"@whispershirt.com", "password": userInfo.code}
+        except Exception as e:
+            print('Kullanıcı oluşturulurken hata oluştu:', e)
+            return {"type": "error", "message": str(e)}
+    else:
+        print('Belirtilen anahtarla eşleşen bir kullanıcı bulunamadı.')
+        return {"type": "error", "message": "key not found."}
+    
 
 
 @app.get("/audio")
@@ -82,8 +126,8 @@ def read_item(item_id: int, q: Union[str, None] = None):
     response = supabase.table('dene').insert({"q": q}).execute()
     return {"item_id": item_id, "q": q}
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws/{subdomain}")
+async def websocket_endpoint(websocket: WebSocket, subdomain: str):
     print("WebSocket Connection Established")
     await websocket.accept()
     await websocket.send_text(
@@ -99,7 +143,7 @@ async def websocket_endpoint(websocket: WebSocket):
             print(f"Message received: {message}")
             data = json.loads(message)
             print(f"Data received: {data}")
-            if data.get("type") == 'text':
+            if data.get("type") == 'user_input':
                 async def _run_conversation():
                     try:
                         await websocket.send_text(
@@ -162,7 +206,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                         try:
                             await websocket.send_text(
-                                json.dumps({"type": "audio-response", "text": file_path})
+                                json.dumps({"type": "audio-response", "text": text, "file_path": file_path})
                             )  
                         except Exception as e:
                             print(f"Error sending text response: {e}")

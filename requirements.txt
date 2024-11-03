@@ -9,3 +9,4 @@ pydub
 boto3
 python-decouple
 supabase
+pydantic

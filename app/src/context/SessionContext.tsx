@@ -8,7 +8,7 @@ export type SessionContextType = {
     setSession: (session: Session) => void
 }
 
-const SessionContext = createContext<SessionContextType>({
+export const SessionContext = createContext<SessionContextType>({
     session: null,
     setSession: () => { }
 })
@@ -32,6 +32,8 @@ export const SessionProvider = ({ children }: SessionProviderProps) => {
 
         return () => subscription.unsubscribe()
     }, [])
+    console.log(`
+        session=>`, session)
     return (
         <SessionContext.Provider value={ { session, setSession } }>
             { children }
