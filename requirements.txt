@@ -10,3 +10,4 @@ boto3
 python-decouple
 supabase
 pydantic
+realtime==2.0.0

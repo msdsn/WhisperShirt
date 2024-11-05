@@ -1,33 +1,100 @@
 from decouple import config
-from typing import Iterator
-from openai import OpenAI
-import json
-import base64
+from openai import AsyncOpenAI
 import io
 from pydub import AudioSegment
-import boto3
-import time
 import random
 from decouple import config
 import os
-from server import s3
 
 class LLM:
-    def __init__(self, person_name: str = "emily", person_features: Iterator[str] = ['loves blue', 'likes to read']):
+    def __init__(self, subdomain: str = None,supabase=None, s3=None):
         api_key = config("OPENAI_KEY")
-        self.client = OpenAI(
+        self.supabase = supabase
+        self.subdomain = subdomain
+        self.s3 = s3
+        self.client = AsyncOpenAI(
             base_url="https://api.openai.com/v1",
             api_key=api_key,
         )
         self.memory = []
+        self.system_base = "You're a talking shirt. You can talk to me about anything. You are belonging to a person named "+subdomain+"." +f"You are a good friend to {subdomain}. You are kind and helpful. You are a good listener. You are a good friend. Give short responses."
         self.memory.append(
             {
                 "role": "system",
-                "content": "You're a talking shirt. You can talk to me about anything. You are belonging to a person named "+person_name+"."+f"{person_name} has some features that you know: " +"".join([f"{feature}, " for feature in person_features])+". You will speak with someone about "+person_name+". You are like a friend to "+person_name+". You are kind and helpful. You are a good listener. You are a good friend. Give short responses.",
+                "content": self.system_base,
             }
         )
-    def chat(self, prompt: str, ws) -> str:
+        self.likes = []
+        self.dislikes = []
+        self.peopleloved = []
+        self.peopledisliked = []
+        self.tobetold = []
 
+    def updateSystem(self):
+        system = self.system_base
+        if len(self.likes) > 0:
+            system += "\n"+self.subdomain+ " likes: "
+            for like in self.likes:
+                system += f"\n- {like['what']} because {like['why']}"
+        if len(self.dislikes) > 0:
+            system += "\n"+self.subdomain+ " dislikes: "
+            for dislike in self.dislikes:
+                system += f"\n- {dislike['what']} because {dislike['why']}"
+        if len(self.peopleloved) > 0:
+            system += "\n"+self.subdomain+ " loves: "
+            for love in self.peopleloved:
+                system += f"\n- {love['who']} because {love['why']}"
+        if len(self.peopledisliked) > 0:
+            system += "\n"+self.subdomain+ " doesn't like: "
+            for dislike in self.peopledisliked:
+                system += f"\n- {dislike['who']} because {dislike['why']}"
+
+        self.memory[0]["content"] = system
+    def what_user_likes(self, payload):
+        data = payload["data"]['record']
+        self.likes.append(
+            {
+                "what": data['what'],
+                "why": data['why'],
+            }
+        )
+        self.updateSystem()
+    def what_user_dislikes(self, payload):
+        data = payload["data"]['record']
+        self.dislikes.append(
+            {
+                "what": data['what'],
+                "why": data['why'],
+            }
+        )
+        self.updateSystem()
+    def who_user_loves(self, payload):
+        data = payload["data"]['record']
+        self.peopleloved.append(
+            {
+                "who": data['who'],
+                "why": data['why'],
+            }
+        )
+        self.updateSystem()
+    def who_user_dont_like(self, payload):
+        data = payload["data"]['record']
+        self.peopledisliked.append(
+            {
+                "who": data['who'],
+                "why": data['why'],
+            }
+        )
+        self.updateSystem()
+    def user_request_something_to_be_told(self, payload):
+        data = payload["data"]['record']
+        self.tobetold.append(
+            {
+                "what": data['what']
+            }
+        )
+        self.updateSystem()
+    async def chat(self, prompt: str, ws) -> str:
         self.memory.append(
             {
                 "role": "user",
@@ -38,7 +105,7 @@ class LLM:
             print("---"*20)
             print(self.memory)
             print("---"*20)
-            completion = self.client.chat.completions.create(
+            completion = await self.client.chat.completions.create(
                 messages=self.memory,
                 model='gpt-4o',
                 max_tokens=150,
@@ -52,13 +119,15 @@ class LLM:
                 "content": completion.choices[0].message.content,
             }
         )
-        # calculate time
+        file_name = await self.saveFileToB3(completion.choices[0].message.content)  
+        return file_name, completion.choices[0].message.content
+    
+    async def saveFileToB3(self, text: str):
         try:
-            time_in = time.time()
-            response = self.client.audio.speech.create(
+            response = await self.client.audio.speech.create(
                 model="tts-1",
                 voice="nova",
-                input=completion.choices[0].message.content,
+                input= text,
                 response_format="wav",
             ) 
             random_number = random.randint(0, 100000)
@@ -72,20 +141,19 @@ class LLM:
             audio_file.seek(0)
             audio = AudioSegment.from_wav(audio_file)
             audio.export(ogg_path, format="ogg")
-            s3.upload_file(
+
+            self.s3.upload_file(
                 ogg_path,
                 config("AWS_STORAGE_BUCKET_NAME"),
                 'whispershirt/'+file_name,
             )
             # delete file
             os.remove(ogg_path)
-                    
-            time_out = time.time()
-            print(f"Time taken s: {(time_out-time_in)}")
+
+            return file_name
         except Exception as e:
             print(f"Error: {e}")
-            
-        return file_name, completion.choices[0].message.content
+            return "Error: "+str(e)
                
         
         

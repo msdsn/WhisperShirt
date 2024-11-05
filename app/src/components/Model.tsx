@@ -56,11 +56,11 @@ export const Model = ({ userInput, setModelResponse, setIsModelWhispering }: Mod
                 app.stage.addChild(model);
                 model.anchor.set(0.5);
                 model.scale.set(0.7);
-                model.y = app.screen.height / 1.6;
-                model.x = app.screen.width / 1.95;
+                model.y = app.screen.height / 1.5;
+                model.x = app.screen.width / 1.8;
                 model.zIndex = 1;
             })()
-            const texturePromise = Assets.load('/sand.png');
+            const texturePromise = Assets.load('/white.png');
             texturePromise.then((resolvedTexture) => {
                 // create a new Sprite from the resolved loaded Texture
                 fabric = Sprite.from(resolvedTexture);
@@ -69,7 +69,7 @@ export const Model = ({ userInput, setModelResponse, setIsModelWhispering }: Mod
                 fabric.anchor.set(0.5);
 
                 // move the sprite to the center of the screen
-                fabric.scale.set(0.13);
+                fabric.scale.set(0.7);
                 console.log(`app.screen.height: ${app.screen.height}, app.screen.width: ${app.screen.width}`)
                 fabric.x = app.screen.width / 2;
                 fabric.y = app.screen.height / 2;

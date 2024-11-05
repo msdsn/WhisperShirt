@@ -6,7 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
-from fastapi.responses import StreamingResponse
 from live2d_model import Live2dModel
 import os
 import asyncio
@@ -17,6 +16,7 @@ import io
 import boto3
 from pydub import AudioSegment
 from pydantic import BaseModel
+from bot import Bot
 
 
 
@@ -27,7 +27,7 @@ s3 = boto3.client(
     region_name=config("AWS_REGION_NAME"),
 )
 
-from bot import Bot
+
 
 
 
@@ -126,6 +126,7 @@ def read_item(item_id: int, q: Union[str, None] = None):
     response = supabase.table('dene').insert({"q": q}).execute()
     return {"item_id": item_id, "q": q}
 
+
 @app.websocket("/ws/{subdomain}")
 async def websocket_endpoint(websocket: WebSocket, subdomain: str):
     print("WebSocket Connection Established")
@@ -135,7 +136,7 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
     )
     received_data_buffer = np.array([])
     l2d = Live2dModel('shizuku-local')
-    bot = Bot(ws=websocket)
+    bot = Bot(ws=websocket, supabase=supabase, subdomain=subdomain, s3=s3)
     
     try:
         while True:
@@ -143,6 +144,28 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
             print(f"Message received: {message}")
             data = json.loads(message)
             print(f"Data received: {data}")
+            if data.get("type") == 'anonymous':
+                bot.initAnonymous()
+            if data.get("type") == 'access_token':
+                token = data.get("token")
+                user = supabase.auth.get_user(token).model_dump()["user"] #decode_jwt(token)
+                print(f"User: {user}")
+                print(user)
+                email = user.get("email")
+                user_subdomain = email.split("@")[0]
+                print(f"User Subdomain: {user_subdomain}, Subdomain: {subdomain}")
+                if user_subdomain != subdomain:
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "control",
+                                "text": "subdomain-mismatch",
+                            }
+                        )
+                    )
+                    await websocket.close()
+                    return
+                bot.initAsUser()
             if data.get("type") == 'user_input':
                 async def _run_conversation():
                     try:
@@ -154,10 +177,12 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
                                 }
                             )
                         )
-                        file_path, text = await asyncio.to_thread(
-                            bot.conversation_chain,
-                            user_input=data.get("text"),
-                        )
+                        file_path, text = await bot.conversation_chain(user_input=data.get("text"))
+                        if file_path is None:
+                            await websocket.send_text(
+                                json.dumps({"type": "error", "text": text})
+                            )
+                            return
                         try:
                             await websocket.send_text(
                                 json.dumps({"type": "audio-response", "text": text, "file_path": file_path})
@@ -180,6 +205,8 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
                         print(f"😢Conversation was interrupted. {e}")
                 conversation_task = asyncio.create_task(_run_conversation())
 
+                
+
             elif data.get("type") == "mic-audio-data":
                 received_data_buffer = np.append(
                     received_data_buffer,
@@ -200,10 +227,7 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
                                 }
                             )
                         )
-                        file_path, text = await asyncio.to_thread(
-                            bot.conversation_chain,
-                            user_input=audio,
-                        )
+                        file_path, text = await bot.conversation_chain(user_input=audio)
                         try:
                             await websocket.send_text(
                                 json.dumps({"type": "audio-response", "text": text, "file_path": file_path})

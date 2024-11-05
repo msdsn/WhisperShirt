@@ -1,5 +1,6 @@
-import { createContext, useState, useEffect, useContext } from 'react'
+import { createContext, useState, useEffect, useContext, useRef } from 'react'
 import { SubdomainContext, SubdomainContextType } from './SubdomainContext'
+import { SessionContext, SessionContextType } from './SessionContext'
 
 export type WebSocketContextType = {
     isReady: boolean,
@@ -22,6 +23,8 @@ type WebSocketProviderProps = {
 }
 
 export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
+    const { session } = useContext(SessionContext) as SessionContextType
+    const sessionRef = useRef(session);
     const { subdomain, isLocal } = useContext(SubdomainContext) as SubdomainContextType
     const [isReady, setIsReady] = useState<boolean>(false)
     const [val, setVal] = useState<string | null>(null)
@@ -49,6 +52,9 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
         setWs(socket);
     }
     useEffect(() => {
+        sessionRef.current = session;
+    }, [session]);
+    useEffect(() => {
         if (subdomain) {
             if (ws) {
                 ws.close()
@@ -57,9 +63,30 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
         }
     }, [subdomain])
     useEffect(() => {
-        if (ws) {
-            send(JSON.stringify({ type: 'subdomain', text: subdomain }))
+        let timeoutId: any;
+        if (isReady) {
+            if (session) {
+                // If session exists, send access_token immediately
+                const accessToken = session.access_token;
+                send(JSON.stringify({ type: 'access_token', token: accessToken }));
+            } else {
+                // If session does not exist, wait 600ms and check again
+                timeoutId = setTimeout(() => {
+                    const currentSession = sessionRef.current;
+                    if (currentSession) {
+                        const accessToken = currentSession.access_token;
+                        send(JSON.stringify({ type: 'access_token', token: accessToken }));
+                    } else {
+                        send(JSON.stringify({ type: 'anonymous' }));
+                    }
+                }, 600);
+            }
         }
+        return () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
     }, [isReady])
     useEffect(() => {
         return () => {
