@@ -54,6 +54,7 @@ class VoiceRecognition:
             # prompt="Specify context or spelling",
             response_format="text",
             temperature=0.0,
+            language="tr",
         )
 
         return transcription

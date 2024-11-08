@@ -136,16 +136,21 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
     )
     received_data_buffer = np.array([])
     l2d = Live2dModel('shizuku-local')
-    bot = Bot(ws=websocket, supabase=supabase, subdomain=subdomain, s3=s3)
+    bot = Bot(ws=websocket, supabase=supabase, subdomain=subdomain, s3=s3) 
+        
+    
     
     try:
         while True:
             message = await websocket.receive_text()
-            print(f"Message received: {message}")
             data = json.loads(message)
-            print(f"Data received: {data}")
             if data.get("type") == 'anonymous':
-                bot.initAnonymous()
+                await bot.initAnonymous()
+                #run_bg = asyncio.create_task(bot.llm.start_db_listener("likes", bot.llm.what_user_likes))
+                #run_bg2 = asyncio.create_task(bot.start_db_listener("peopleloved", bot.who_user_loves))
+                #run_bg3 = asyncio.create_task(bot.start_db_listener("dislikes", bot.what_user_dislikes))
+                #run_bg4 = asyncio.create_task(bot.start_db_listener("peopledisliked", bot.who_user_dont_like))
+                #run_bg5 = asyncio.create_task(bot.start_db_listener("tobetold", bot.user_request_something_to_be_told))
             if data.get("type") == 'access_token':
                 token = data.get("token")
                 user = supabase.auth.get_user(token).model_dump()["user"] #decode_jwt(token)

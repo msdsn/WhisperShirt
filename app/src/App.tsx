@@ -6,7 +6,10 @@ import { SubdomainProvider } from "./context/SubdomainContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import About from "./pages/About";
 import { SessionProvider } from "./context/SessionContext";
+import { MicProvider } from "./context/MicContext";
+import How from "./pages/How";
 
 function App() {
 
@@ -16,6 +19,12 @@ function App() {
     },
     {
       path: "/login", element: <Login />,
+    },
+    {
+      path: "/about", element: <About />,
+    },
+    {
+      path: "/how", element: <How />,
     }
   ]);
 
@@ -24,7 +33,9 @@ function App() {
       <SessionProvider>
         <SubdomainProvider>
           <WebSocketProvider>
-            <RouterProvider router={ router } />
+            <MicProvider>
+              <RouterProvider router={ router } />
+            </MicProvider>
           </WebSocketProvider>
         </SubdomainProvider>
       </SessionProvider>

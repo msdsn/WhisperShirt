@@ -3,13 +3,14 @@ import { Input } from "@/components/ui/input"
 import { SubdomainContext } from "@/context/SubdomainContext";
 import { ArrowRight, PersonStanding } from "lucide-react"
 import { useContext, useState, } from "react";
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import Subdomain from "./Subdomain";
 import { SessionContext } from "@/context/SessionContext";
 
 export default function Home() {
     const { session } = useContext(SessionContext);
     const { subdomain, isLocal } = useContext(SubdomainContext);
+    const navigate = useNavigate()
 
     const [username, setUsername] = useState<string>('');
 
@@ -26,7 +27,7 @@ export default function Home() {
     return (
         <>
             {
-                subdomain !== '' ? (
+                (subdomain !== '' && subdomain !== null) ? (
                     <Subdomain />
                 ) : (
                     <div className="min-h-screen flex flex-col">
@@ -98,10 +99,10 @@ export default function Home() {
                                 </div>
 
                                 <div className="flex flex-wrap justify-center gap-2">
-                                    <Button variant="secondary" size="sm">
+                                    <Button variant="secondary" size="sm" onClick={()=>navigate('/about')}>
                                         What is Whisper Shirts? ↗
                                     </Button>
-                                    <Button variant="secondary" size="sm">
+                                    <Button variant="secondary" size="sm" onClick={()=>navigate("/how")}>
                                         How does a Shirt Talk (Whisper)? ↗
                                     </Button>
                                     <Button variant="secondary" size="sm">
@@ -134,12 +135,8 @@ export default function Home() {
                                     Privacy
                                 </Link>
                                 <span className="text-muted-foreground">|</span>
-                                <Link to="/legacy" className="text-muted-foreground hover:text-foreground">
-                                    Legacy v0
-                                </Link>
-                                <span className="text-muted-foreground">|</span>
-                                <Link to="/vercel" className="text-muted-foreground hover:text-foreground">
-                                    Vercel ↗
+                                <Link to="/" className="text-muted-foreground hover:text-foreground">
+                                    Ws ↗
                                 </Link>
                             </div>
                         </footer>

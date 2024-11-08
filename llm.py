@@ -5,19 +5,21 @@ from pydub import AudioSegment
 import random
 from decouple import config
 import os
+from realtime import AsyncRealtimeClient
 
 class LLM:
     def __init__(self, subdomain: str = None,supabase=None, s3=None):
         api_key = config("OPENAI_KEY")
         self.supabase = supabase
         self.subdomain = subdomain
+        self.realtime = AsyncRealtimeClient(config("REALTIME_URL"), config("SUPABASE_KEY"))
         self.s3 = s3
         self.client = AsyncOpenAI(
             base_url="https://api.openai.com/v1",
             api_key=api_key,
         )
         self.memory = []
-        self.system_base = "You're a talking shirt. You can talk to me about anything. You are belonging to a person named "+subdomain+"." +f"You are a good friend to {subdomain}. You are kind and helpful. You are a good listener. You are a good friend. Give short responses."
+        self.system_base = "You're a talking shirt. You can talk to me about anything. You are shirt and belonging to a person named "+subdomain+"." +f" People will talk to you, get to know them, ask who they are. People may ask questions about the {subdomain} and you can answer them because you know {subdomain}. If {subdomain} likes the person you are talking to, like them too. If {subdomain} has given you instructions about the person you are talking to, you can do it, so you must first find out who you are talking to. You have to be polite. explain things in a polite way unless the {subdomain} wants otherwise. You should find out the name of the person you are talking to without them knowing, so that you can aplly the instructions."
         self.memory.append(
             {
                 "role": "system",
@@ -29,25 +31,69 @@ class LLM:
         self.peopleloved = []
         self.peopledisliked = []
         self.tobetold = []
+        self.get_initial_db_before_listen()
+
+
+    def get_initial_db_before_listen(self):
+        likes = self.supabase.table("likes").select("*").eq("subdomain", self.subdomain).execute()
+        # APIResponse-> json
+        dislikes = self.supabase.table("dislikes").select("*").eq("subdomain", self.subdomain).execute()
+        peopleloved = self.supabase.table("peopleloved").select("*").eq("subdomain", self.subdomain).execute()
+        peopledisliked = self.supabase.table("peopledisliked").select("*").eq("subdomain", self.subdomain).execute()
+        tobetold = self.supabase.table("tobetold").select("*").eq("subdomain", self.subdomain).execute()
+        self.likes = [{"what": like["what"], "why": like["why"] if like["why"] else ''} for like in likes.data]
+        self.dislikes = [{"what": dislike["what"], "why": dislike["why"] if dislike["why"] else ''} for dislike in dislikes.data]
+        self.peopleloved = [{"who": love["who"], "why": love["why"] if love["why"] else ''} for love in peopleloved.data]
+        self.peopledisliked = [{"who": dislike["who"], "why": dislike["why"] if dislike["why"] else ''} for dislike in peopledisliked.data]
+        self.tobetold = [{"who": tobe["who"], "what": tobe["what"]} for tobe in tobetold.data]
+        self.updateSystem()
+
+
+    async def start_db_listener(self, table, callback):
+        await self.realtime.connect()
+        await self.realtime.channel("realtime").on_postgres_changes(
+            'INSERT',
+            schema="public",
+            table=table,
+            callback=callback
+        ).subscribe()
+        await self.realtime.listen()
 
     def updateSystem(self):
         system = self.system_base
         if len(self.likes) > 0:
             system += "\n"+self.subdomain+ " likes: "
             for like in self.likes:
-                system += f"\n- {like['what']} because {like['why']}"
+                system += f"\n- {like['what']}"
+                if like['why']:
+                    system += f" because {like['why']}"
         if len(self.dislikes) > 0:
             system += "\n"+self.subdomain+ " dislikes: "
             for dislike in self.dislikes:
-                system += f"\n- {dislike['what']} because {dislike['why']}"
+                system += f"\n- {dislike['what']}"
+                if dislike['why']:
+                    system += f" because {dislike['why']}"
         if len(self.peopleloved) > 0:
             system += "\n"+self.subdomain+ " loves: "
             for love in self.peopleloved:
-                system += f"\n- {love['who']} because {love['why']}"
+                system += f"\n- {love['who']}"
+                if love['why']:
+                    system += f" because {love['why']}"
         if len(self.peopledisliked) > 0:
             system += "\n"+self.subdomain+ " doesn't like: "
             for dislike in self.peopledisliked:
-                system += f"\n- {dislike['who']} because {dislike['why']}"
+                system += f"\n- {dislike['who']}"
+                if dislike['why']:
+                    system += f" because {dislike['why']}"
+        if len(self.tobetold) > 0:
+            system += "\n"+self.subdomain+ " wants to be told: "
+            for tobe in self.tobetold:
+                system += f"\n- {tobe['what']}, should be told to =>{tobe['who']}"
+
+        print(f"""system uncellendi
+              {system}{self.memory[0]["content"]}
+ywni sistem:
+{system}""")
 
         self.memory[0]["content"] = system
     def what_user_likes(self, payload):
@@ -90,7 +136,8 @@ class LLM:
         data = payload["data"]['record']
         self.tobetold.append(
             {
-                "what": data['what']
+                "who": data['who'],
+                "what": data['what'],
             }
         )
         self.updateSystem()

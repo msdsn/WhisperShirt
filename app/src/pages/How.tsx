@@ -1,18 +1,14 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 //import { SubdomainContext } from "@/context/SubdomainContext";
-import { ArrowRight, PersonStanding } from "lucide-react"
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom"
 import { motion } from 'framer-motion';
 import { Model } from "@/components/Model";
 import { SubdomainContext } from "@/context/SubdomainContext";
-import { SessionContext } from "@/context/SessionContext";
-import MicButton from "@/components/MicButton";
-import { MicContext } from "@/context/MicContext";
+import { model } from "@/components/Model";
 
-export default function Subdomain() {
-    const { session } = useContext(SessionContext);
+export default function How() {
     const { isLocal } = useContext(SubdomainContext);
     const [showCanvas, setShowCanvas] = useState(false);
     const headerRef = useRef<HTMLElement>(null);
@@ -21,25 +17,72 @@ export default function Subdomain() {
     const innerDivRef = useRef<HTMLDivElement>(null);
     const [canvasHeight, setCanvasHeight] = useState(0);
 
-    const [userInput, setUserInput] = useState<string>('');
-    const [sendInput, setSendInput] = useState<string>('');
-    const [typingText, setTypingText] = useState<string>('')
-    const [isModelWhispering, setIsModelWhispering] = useState(false);
-    const [isModelThinking, setIsModelThinking] = useState(false);
-    const { toggleAudio, isMicOn } = useContext(MicContext);
+
+    const [text, setText] = useState<string>('');
+    const audios = Array.from({ length: 9 }, (_, i) => `/how${i + 1}.mp3`);
+    const texts = [
+        `Hi, I'm talking shirt.`,
+        `Yes, I can talk.`,
+        `And you can train me.`,
+        `When you get me, your friends and family can talk to me.`,
+        `For example, you can tell me that if you talk to my brother, say hi to him.`,
+        `And if I talk to your brother, I'll say hi.`,
+        `Or if you talk to my friend with the red hair, you can tell him to flip me off.`,
+        `I'll subtly ask the people I talk to about their hair color and their closeness to you.`,
+        `And if the person has red hair, I might snap at them.`,
+        `So you will be able to ask people if they want to talk to me in my t-shirt.`,
+    ]
+    const [typingText, setTypingText] = useState<string>('');
+    const [animationState, setAnimationState] = useState<number | null>(null);
+    const [explanationStarted, setExplanationStarted] = useState(false);
 
     useEffect(() => {
-        if (!isModelWhispering) {
-            setTypingText('')
-            return;
+        const checkIsModelHasBeenSet = setInterval(() => {
+            if (model) {
+                clearInterval(checkIsModelHasBeenSet);
+                setAnimationState(1);
+            }
+        }, 100);
+        return () => clearInterval(checkIsModelHasBeenSet);
+    }, []);
+
+    useEffect(() => {
+        console.log(`animationState-->: ${animationState}`)
+        if (animationState && explanationStarted) {
+            // convert to base64
+            fetch(audios[animationState - 1])
+                .then(response => response.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blob);
+                    reader.onloadend = function () {
+                        const base64data = reader.result;
+                        setText(texts[animationState - 1]);
+                        model.speak(
+                            base64data,
+                            {
+                                onFinish: () => {
+                                    console.log(`bittiiiii`)
+                                    setTimeout(() => {
+                                        setAnimationState(prev => (prev === 9 ? null : (prev ? prev + 1 : 0 )));
+                                    }, 200);
+                                },
+                            }
+                        )
+                    }
+                });
         }
-        let i = 0
-        if (!userInput) return setTypingText('')
-        setTypingText(`${userInput.charAt(0)}`)
+    }, [animationState, explanationStarted]);
+
+    useEffect(() => {
+        let i = 0;
+        if (!text) return 
+        setTypingText('');
+        setTypingText(`${text.charAt(0)}`)
         const typingInterval = setInterval(() => {
-            if (i < userInput.length) {
+            if (i < text.length) {
                 setTypingText(prev => {
-                    return prev + userInput.charAt(i)
+                    return prev + text.charAt(i)
                 })
                 i++
             } else {
@@ -47,30 +90,7 @@ export default function Subdomain() {
             }
         }, 50)
         return () => clearInterval(typingInterval)
-    }, [userInput, isModelWhispering])
-
-    
-
-    const closeModelWhispering = () => {
-        setIsModelWhispering(false);
-        setUserInput('');
-    }
-
-    const handleSubmit = (e: any) => {
-        e.preventDefault();
-        setSendInput(userInput);
-        setUserInput('');
-    };
-    const setModelResponse = (response: string) => {
-        setUserInput(response);
-        setIsModelWhispering(true);
-        setIsModelThinking(false);
-    }
-    const startThinking = () => {
-        setIsModelThinking(true);
-        setIsModelWhispering(false);
-        setUserInput('Thinking...');
-    }
+    }, [text])
     // Show canvas after 0.3 seconds
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -107,12 +127,6 @@ export default function Subdomain() {
 
     }, []);
 
-    
-    
-    
-    
-
-
     return (
         <div className="min-h-screen flex flex-col">
             {/* Background Pattern */ }
@@ -139,20 +153,9 @@ export default function Subdomain() {
                     )
                 }
                 <div className="flex items-center gap-4">
-                    {
-                        (session && session.user) ? (
-                            <Button variant="ghost" asChild>
-                                <>
-                                    <PersonStanding />
-                                    { session.user.email?.split('@')[0] }
-                                </>
-                            </Button>
-                        ) : (
-                            <Button asChild>
-                                <Link to="/login">Sign In</Link>
-                            </Button>
-                        )
-                    }
+                    <Button asChild>
+                        <Link to="/buy">Buy a shirt</Link>
+                    </Button>
                 </div>
             </header>
 
@@ -160,61 +163,30 @@ export default function Subdomain() {
             <main className="flex-1 flex flex-col items-center justify-center px-4">
                 <div className="relative w-full max-w-2xl space-y-8 text-center">
                     <h1 ref={ innerH1Ref } id='dene' className="text-4xl md:text-5xl font-bold tracking-tight">
-                        What can I help you ship?
+                        How does a Shirt Talk?
                     </h1>
                     <div ref={ innerDivRef } className="!mt-0 !mb-0 py-10">
-                        <motion.form
-                            onSubmit={ handleSubmit }
-                            initial={ { borderRadius: 6 } }
-                            animate={ { borderRadius: 36 } }
-                            transition={ { ease: "linear", duration: 3.5 } }
+                        {
+                            explanationStarted ? (
+                                <motion.form
+                                    onSubmit={ (e) => { e.preventDefault() } }
+                                    initial={ { borderRadius: 6 } }
+                                    animate={ { borderRadius: 36 } }
+                                    transition={ { ease: "linear", duration: 3.5 } }
+                                    className="flex gap-2 p-1.5 border rounded-lg bg-background shadow-sm">
+                                    <Input
+                                        className="border-0 focus-visible:ring-0 rounded-[20px]"
+                                        placeholder="Ask v0 a question..."
+                                        disabled={ true }
+                                        isLarge={ true }
+                                        value={ typingText }
+                                    />
+                                </motion.form>
+                            ) : (
+                                <Button onClick={ () => setExplanationStarted(true) }>Start explanation</Button>
+                            )
+                        }
 
-                            className="flex gap-2 p-1.5 border rounded-lg bg-background shadow-sm">
-                            <Input
-                                className="border-0 focus-visible:ring-0 rounded-[20px]"
-                                placeholder="Ask v0 a question..."
-                                disabled={ (isModelWhispering || isModelThinking) }
-                                isLarge={ (isModelWhispering || isModelThinking) }
-                                value={ isModelWhispering ? typingText : userInput }
-                                onChange={ e => { setUserInput(e.target.value) } }
-                                onFocus={ closeModelWhispering }
-                                onClick={ closeModelWhispering }
-                            />
-
-                            {
-                                (!isModelWhispering && !isModelThinking) && (
-                                    <>
-                                        <motion.div
-                                            initial={ { marginRight: 0, borderRadius: 6 } }
-                                            animate={ { marginRight: 10, borderRadius: 26 } }
-                                            transition={ { ease: "linear", duration: 1 } }
-                                            className="shrink-0"
-                                        >
-                                            <Button type="submit" size="sm" >
-                                                <ArrowRight className="h-4 w-4" />
-                                                <span className="sr-only">Send</span>
-                                            </Button>
-                                        </motion.div>
-                                        <MicButton isAudioOn={ isMicOn } toggleAudio={ toggleAudio } />
-                                        {/* <motion.div
-                                            initial={ { marginRight: 0, borderRadius: 6 } }
-                                            animate={ { marginRight: 10, borderRadius: 26 } }
-                                            transition={ { ease: "linear", duration: 1 } }
-                                            className="shrink-0"
-                                        >
-                                            <Button type="button" size="sm" onClick={ toggleAudio }>
-                                                { isAudioOn ? <Mic className="h-4 w-4" />: <MicOff className="h-4 w-4" />   }
-                                                <span className="sr-only">{ isAudioOn ? 'Turn off microphone' : 'Turn on microphone' }</span>
-                                            </Button>
-                                        </motion.div> */}
-                                    </>
-
-
-                                )
-                            }
-
-
-                        </motion.form>
                     </div>
                     {
                         showCanvas && (
@@ -226,7 +198,7 @@ export default function Subdomain() {
                             }
                                 className="w-full !mt-0 !mb-0"
                             >
-                                <Model userInput={ sendInput } setModelResponse={ setModelResponse } setIsModelWhispering={ setIsModelWhispering } startThinking={ startThinking }/>
+                                <Model userInput={ '' } setModelResponse={ (response) => { console.log(response) } } setIsModelWhispering={ () => { } } startThinking={ () => { } } />
                             </div>
 
                         )

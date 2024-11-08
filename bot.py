@@ -18,13 +18,13 @@ class Bot:
         self.isInitialized = False
         self.isUser = False
 
-    def initAnonymous(self):
+    async def initAnonymous(self):
         self.llm = LLM(supabase=self.supabase, subdomain=self.subdomain, s3=self.s3)
-        self.start_db_listener("likes", self.llm.what_user_likes)
-        self.start_db_listener("dislikes", self.llm.what_user_dislikes)
-        self.start_db_listener("peopleloved", self.llm.who_user_loves)
-        self.start_db_listener("peopledisliked", self.llm.who_user_dont_like)
-        self.start_db_listener("tobetold", self.llm.user_request_something_to_be_told)
+        await self.start_db_listener("likes", self.llm.what_user_likes)
+        await self.start_db_listener("dislikes", self.llm.what_user_dislikes)
+        await self.start_db_listener("peopleloved", self.llm.who_user_loves)
+        await self.start_db_listener("peopledisliked", self.llm.who_user_dont_like)
+        await self.start_db_listener("tobetold", self.llm.user_request_something_to_be_told)
         self.isInitialized = True
         self.isUser = False
 
@@ -38,9 +38,9 @@ class Bot:
         URL = config("REALTIME_URL")
         JWT = config("SUPABASE_KEY")
         # Setup the Supabase listener
-        self.socket = AsyncRealtimeClient(f"{URL}", JWT, auto_reconnect=True)
-        await self.socket.connect()
-        channel = self.socket.channel("test-postgres-changes")
+        socket = AsyncRealtimeClient(f"{URL}", JWT, auto_reconnect=True)
+        await socket.connect()
+        channel = socket.channel("test-postgres-changes")
         await channel.on_postgres_changes(
             event="INSERT",
             schema="public",
@@ -48,7 +48,7 @@ class Bot:
             filter=f"subdomain=eq.{self.subdomain}",
             callback=callback,
         ).subscribe()
-        self.supabase_listener_task = asyncio.create_task(self.socket.listen())
+        self.supabase_listener_task = asyncio.create_task(socket.listen())
         self.supabase_listener_tasks.append(self.supabase_listener_task)
 
     async def conversation_chain(self, user_input):

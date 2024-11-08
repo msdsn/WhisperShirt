@@ -3,7 +3,7 @@ import { Live2DModel } from 'pixi-live2d-display-lipsyncpatch';
 import { Application, Assets, Sprite } from 'pixi.js';
 import { motion } from 'framer-motion';
 import { WebSocketContext } from '@/context/WebSocketContext';
-import { useMicVAD } from "@ricky0123/vad-react";
+import { MicContext } from '@/context/MicContext';
 
 const model_info = {
     "name": "shizuku-local",
@@ -32,13 +32,15 @@ export var model: any = null;
 export var fabric: any = null;
 
 type ModelProps = {
-    userInput: string,
-    setModelResponse: (response: string) => void,
+    userInput: string
+    setModelResponse: (response: string) => void
     setIsModelWhispering: (isModelWhispering: boolean) => void
+    startThinking: () => void
 }
 
-export const Model = ({ userInput, setModelResponse, setIsModelWhispering }: ModelProps) => {
+export const Model = ({ userInput, setModelResponse, setIsModelWhispering, startThinking }: ModelProps) => {
     const { val, send, isReady, ws } = useContext(WebSocketContext)
+    const { onSpeechEndFunctions } = useContext(MicContext)
     const chunkSize = 4096;
     const canvas = useRef<HTMLCanvasElement>(null);
     const canvasWrapper = useRef<HTMLDivElement>(null);
@@ -95,10 +97,10 @@ export const Model = ({ userInput, setModelResponse, setIsModelWhispering }: Mod
                 model.x = app.screen.width / 1.95;
 
                 if (isMobile()) {
-                    fabric.scale.set(0.10);
+                    fabric.scale.set(0.6);
                 } else {
 
-                    fabric.scale.set(0.13);
+                    fabric.scale.set(0.7);
                 }
             } else {
                 console.log("app not ready")
@@ -149,25 +151,20 @@ export const Model = ({ userInput, setModelResponse, setIsModelWhispering }: Mod
             }
         }
     }, [val])
-    useMicVAD({
-        ortConfig: (ort) => {
-            ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/"
-        },
-        workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.18/dist/vad.worklet.bundle.min.js",
-        modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.18/dist/silero_vad.onnx",
-        startOnLoad: true,
-        onSpeechEnd: (audio) => {
-            console.log("User stopped talking")
-            if (isReady) {
+    useEffect(() => {
+        if (isReady) {
+            onSpeechEndFunctions.current = []
+            onSpeechEndFunctions.current.push((audio: any) => {
+                startThinking();
                 for (let index = 0; index < audio.length; index += chunkSize) {
                     const endIndex = Math.min(index + chunkSize, audio.length);
                     const chunk = audio.slice(index, endIndex);
                     send(JSON.stringify({ type: "mic-audio-data", audio: chunk }));
                 }
                 waitForBufferToEmpty(() => send(JSON.stringify({ type: "mic-audio-end" })));
-            }
-        },
-    })
+            })
+        }
+    }, [isReady])
     const waitForBufferToEmpty = (func: Function) => {
         console.log("...waiting for buffer to empty...");
         if (ws) {
