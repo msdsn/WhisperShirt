@@ -145,7 +145,9 @@ async def websocket_endpoint(websocket: WebSocket, subdomain: str):
             message = await websocket.receive_text()
             data = json.loads(message)
             if data.get("type") == 'anonymous':
+                print(f"dinleme islemi baslatilacak..")
                 await bot.initAnonymous()
+                print(f"dinliyor...")
                 #run_bg = asyncio.create_task(bot.llm.start_db_listener("likes", bot.llm.what_user_likes))
                 #run_bg2 = asyncio.create_task(bot.start_db_listener("peopleloved", bot.who_user_loves))
                 #run_bg3 = asyncio.create_task(bot.start_db_listener("dislikes", bot.what_user_dislikes))

@@ -6,6 +6,7 @@ import random
 from decouple import config
 import os
 from realtime import AsyncRealtimeClient
+from system_info import get_system
 
 class LLM:
     def __init__(self, subdomain: str = None,supabase=None, s3=None):
@@ -19,7 +20,7 @@ class LLM:
             api_key=api_key,
         )
         self.memory = []
-        self.system_base = "You're a talking shirt. You can talk to me about anything. You are shirt and belonging to a person named "+subdomain+"." +f" People will talk to you, get to know them, ask who they are. People may ask questions about the {subdomain} and you can answer them because you know {subdomain}. If {subdomain} likes the person you are talking to, like them too. If {subdomain} has given you instructions about the person you are talking to, you can do it, so you must first find out who you are talking to. You have to be polite. explain things in a polite way unless the {subdomain} wants otherwise. You should find out the name of the person you are talking to without them knowing, so that you can aplly the instructions."
+        self.system_base = get_system(subdomain)
         self.memory.append(
             {
                 "role": "system",
@@ -62,39 +63,33 @@ class LLM:
     def updateSystem(self):
         system = self.system_base
         if len(self.likes) > 0:
-            system += "\n"+self.subdomain+ " likes: "
+            system += "\n  - Some of the things that "+self.subdomain+ " likes: "
             for like in self.likes:
                 system += f"\n- {like['what']}"
                 if like['why']:
                     system += f" because {like['why']}"
         if len(self.dislikes) > 0:
-            system += "\n"+self.subdomain+ " dislikes: "
+            system += "\n  - Some of the things that "+self.subdomain+ " dislikes: "
             for dislike in self.dislikes:
-                system += f"\n- {dislike['what']}"
+                system += f"\n   - {dislike['what']}"
                 if dislike['why']:
                     system += f" because {dislike['why']}"
         if len(self.peopleloved) > 0:
-            system += "\n"+self.subdomain+ " loves: "
+            system += "\n  - Some of the people that "+self.subdomain+ " likes: "
             for love in self.peopleloved:
-                system += f"\n- {love['who']}"
+                system += f"\n   - {love['who']}"
                 if love['why']:
                     system += f" because {love['why']}"
         if len(self.peopledisliked) > 0:
-            system += "\n"+self.subdomain+ " doesn't like: "
+            system += "\n  - Some of the people that "+self.subdomain+ " doesn't like: "
             for dislike in self.peopledisliked:
-                system += f"\n- {dislike['who']}"
+                system += f"\n   - {dislike['who']}"
                 if dislike['why']:
                     system += f" because {dislike['why']}"
         if len(self.tobetold) > 0:
-            system += "\n"+self.subdomain+ " wants to be told: "
+            system += "\n  - Those are what "+self.subdomain+ " wants you to say: "
             for tobe in self.tobetold:
-                system += f"\n- {tobe['what']}, should be told to =>{tobe['who']}"
-
-        print(f"""system uncellendi
-              {system}{self.memory[0]["content"]}
-ywni sistem:
-{system}""")
-
+                system += f"\n   - You should say, {tobe['what']}, to => {tobe['who']}"
         self.memory[0]["content"] = system
     def what_user_likes(self, payload):
         data = payload["data"]['record']
@@ -106,6 +101,9 @@ ywni sistem:
         )
         self.updateSystem()
     def what_user_dislikes(self, payload):
+        print("***"*20)
+        print("db'den yeni deger geldi")
+        print("***"*20)
         data = payload["data"]['record']
         self.dislikes.append(
             {
@@ -160,13 +158,22 @@ ywni sistem:
         except Exception as e:
             print("Error calling the chat endpoint: " + str(e))
             return "Error calling the chat endpoint: " + str(e)
+        print("completion: ", completion)
         self.memory.append(
             {
                 "role": "assistant",
                 "content": completion.choices[0].message.content,
             }
         )
-        file_name = await self.saveFileToB3(completion.choices[0].message.content)  
+        try:
+            print("calisiyoru burasi....")
+            file_name = await self.saveFileToB3(completion.choices[0].message.content)  
+            print("calisiyoru burasi....")
+            print("file_name--->: ", file_name)
+        except Exception as e:
+            print("Error saving file to B3: " + str(e))
+            return "Error saving file to B3: " + str(e)
+
         return file_name, completion.choices[0].message.content
     
     async def saveFileToB3(self, text: str):
